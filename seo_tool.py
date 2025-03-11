@@ -5,7 +5,6 @@ import spacy
 from gensim import corpora, models
 from collections import Counter
 import matplotlib.pyplot as plt
-import os
 
 # Initialize spaCy NLP model
 nlp = spacy.load("en_core_web_sm")
@@ -58,6 +57,7 @@ def extract_page_data(url):
         st.warning(f"Couldn't scrape {url}: {str(e)}")
         return None
 
+@st.cache_data
 def analyze_keywords(top_contents):
     """Extract NLP/LSI keywords from top content"""
     all_content = " ".join([c["content"] for c in top_contents if c])
@@ -75,7 +75,7 @@ def analyze_keywords(top_contents):
     
     return {
         "top_tfidf": tfidf.most_common(20),
-        "lsi_keywords": [word[0] for word in lsi.show_topic(0, topn=10)]
+        "lsi_keywords": [word[0] for word in lsi.show_topic(0, topn=10)] if lsi else []
     }
 
 def main():
@@ -112,13 +112,14 @@ def main():
             fig, ax = plt.subplots()
             ax.bar([k[0] for k in keyword_data["top_tfidf"]], [k[1] for k in keyword_data["top_tfidf"]])
             plt.xticks(rotation=45)
+            plt.tight_layout()
             st.pyplot(fig)
             
             # Content analysis
             user_keywords = [token.text.lower() for token in nlp(user_content) if token.pos_ in ["NOUN", "PROPN"]]
-            competitor_keywords = [kw[0] for c in competitors for kw in c["keywords"]["top_tfidf"]]
+            competitor_keywords = [kw[0] for kw in keyword_data["top_tfidf"]]
             matched_keywords = set(user_keywords) & set(competitor_keywords)
-            score = len(matched_keywords) / len(set(competitor_keywords)) * 100
+            score = (len(matched_keywords) / len(set(competitor_keywords)) * 100 if len(set(competitor_keywords)) > 0 else 0
             
             # Show results
             st.subheader(f"SEO Score: {score:.1f}/100")
@@ -130,14 +131,15 @@ def main():
                 st.write([k[0] for k in keyword_data["top_tfidf"][:10]])
                 
                 st.markdown("### Missing Keywords")
-                st.write(list(set(competitor_keywords) - set(user_keywords))[:10]
+                missing_keywords = list(set(competitor_keywords) - set(user_keywords))[:10]
+                st.write(missing_keywords if missing_keywords else ["All keywords matched!"])
                 
             with col2:
                 st.markdown("### Competitor Insights")
                 for comp in competitors[:3]:
                     st.write(f"**URL**: {comp['url']}")
                     st.write(f"**H1 Headings**: {', '.join(comp['headings']['h1'])}")
-                    st.write(f"**Content Length**: {len(comp['content'])} characters")
+                    st.write(f"**Content Length**: {len(comp['content']):,} characters")
                     st.write("---")
 
 if __name__ == "__main__":
