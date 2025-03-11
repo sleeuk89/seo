@@ -1,0 +1,7 @@
+streamlit==1.28.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+spacy==3.7.2
+gensim==4.3.2
+matplotlib==3.7.1
+python-dotenv==1.0.0
