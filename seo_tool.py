@@ -1,3 +1,4 @@
+# seo_tool.py
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -20,7 +21,11 @@ def get_serp_results(keyword):
             "query": keyword,
             "num": 10
         }
-        response = requests.get("http://api.serpstack.com/search", params=params)
+        response = requests.get(
+            "http://api.serpstack.com/search",
+            params=params,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+        )
         return [result["url"] for result in response.json()["organic_results"]]
     except Exception as e:
         st.error(f"Error fetching SERP results: {str(e)}")
@@ -43,7 +48,7 @@ def extract_page_data(url):
         
         domain = url.split('/')[2]
         internal_links = [
-            a['href'] for a in soup.find_all('a', href=True) 
+            a['href'] for a in soup.find_all('a', href=True)
             if domain in a['href']
         ]
         
@@ -79,18 +84,18 @@ def analyze_keywords(top_contents):
     }
 
 def main():
-    st.title("Advanced SEO Research Tool")
+    st.title("🚀 Advanced SEO Research Tool")
     
     # User inputs
     keyword = st.text_input("Enter target keyword:")
     user_content = st.text_area("Paste your content here:", height=300)
     
-    if st.button("Analyze"):
+    if st.button("Analyze Content"):
         if not keyword or not user_content:
             st.warning("Please fill both fields!")
             return
             
-        with st.spinner("Analyzing SERP results..."):
+        with st.spinner("🔍 Analyzing SERP results..."):
             # Get SERP results
             serp_urls = get_serp_results(keyword)
             
@@ -102,44 +107,60 @@ def main():
                     competitors.append(data)
             
             if not competitors:
-                st.error("No competitors data found!")
+                st.error("No competitor data found!")
                 return
                 
             # Keyword analysis
             keyword_data = analyze_keywords(competitors)
             
             # Visualization
-            fig, ax = plt.subplots()
-            ax.bar([k[0] for k in keyword_data["top_tfidf"]], [k[1] for k in keyword_data["top_tfidf"]])
+            st.subheader("📊 Keyword Analysis")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.bar(
+                [k[0] for k in keyword_data["top_tfidf"]],
+                [k[1] for k in keyword_data["top_tfidf"]]
+            )
             plt.xticks(rotation=45)
             plt.tight_layout()
             st.pyplot(fig)
             
             # Content analysis
-            user_keywords = [token.text.lower() for token in nlp(user_content) if token.pos_ in ["NOUN", "PROPN"]]
+            user_keywords = [
+                token.text.lower()
+                for token in nlp(user_content)
+                if token.pos_ in ["NOUN", "PROPN"]
+            ]
             competitor_keywords = [kw[0] for kw in keyword_data["top_tfidf"]]
             matched_keywords = set(user_keywords) & set(competitor_keywords)
-            score = (len(matched_keywords) / len(set(competitor_keywords)) * 100 if len(set(competitor_keywords)) > 0 else 0
+            score = (
+                (len(matched_keywords) / len(set(competitor_keywords)) * 100
+                if len(set(competitor_keywords)) > 0
+                else 0
+            )
             
             # Show results
-            st.subheader(f"SEO Score: {score:.1f}/100")
+            st.subheader(f"📈 SEO Score: {score:.1f}/100")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("### Top Recommended Keywords")
-                st.write([k[0] for k in keyword_data["top_tfidf"][:10]])
+                st.markdown("### 🎯 Top Recommended Keywords")
+                st.write(keyword_data["top_tfidf"][:10])
                 
-                st.markdown("### Missing Keywords")
+                st.markdown("### ❌ Missing Keywords")
                 missing_keywords = list(set(competitor_keywords) - set(user_keywords))[:10]
-                st.write(missing_keywords if missing_keywords else ["All keywords matched!"])
+                if missing_keywords:
+                    st.write(missing_keywords)
+                else:
+                    st.success("All important keywords are present!")
                 
             with col2:
-                st.markdown("### Competitor Insights")
+                st.markdown("### 🏆 Top Competitor Insights")
                 for comp in competitors[:3]:
                     st.write(f"**URL**: {comp['url']}")
-                    st.write(f"**H1 Headings**: {', '.join(comp['headings']['h1'])}")
+                    st.write(f"**Main Heading**: {comp['headings']['h1'][0] if comp['headings']['h1'] else 'N/A'}")
                     st.write(f"**Content Length**: {len(comp['content']):,} characters")
+                    st.write(f"**Internal Links**: {len(comp['internal_links'])}")
                     st.write("---")
 
 if __name__ == "__main__":
